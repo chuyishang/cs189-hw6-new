@@ -183,6 +183,7 @@ class SoftMax(Activation):
     def __init__(self):
         super().__init__()
 
+
     def forward(self, Z: np.ndarray) -> np.ndarray:
         """Forward pass for softmax activation.
         Hint: The naive implementation might not be numerically stable.
@@ -196,7 +197,19 @@ class SoftMax(Activation):
         f(z) as described above applied elementwise to `Z`
         """
         ### YOUR CODE HERE ###
-        return np.exp(Z) / np.exp(Z).sum()
+        #print("========================================")
+        #print("Z", Z.shape)
+        #print("Z", Z)
+        #print("========================================")
+
+        Z_center = Z - np.max(Z, axis=1, keepdims=True)
+        
+        num = np.exp(Z_center)
+        denom = np.sum(num, axis=1, keepdims=True)
+
+        softmax = num / denom
+
+        return softmax
 
     def backward(self, Z: np.ndarray, dY: np.ndarray) -> np.ndarray:
         """Backward pass for softmax activation.
@@ -211,9 +224,13 @@ class SoftMax(Activation):
         -------
         derivative of loss w.r.t. input of this layer
         """
-        ### YOUR CODE HERE ###
-        return ...
-
+        s = self.forward(Z)
+        dZ = []
+        for i in range(Z.shape[0]):
+            J = np.diag(s[i]) - np.outer(s[i], s[i])
+            dZ.append(J @ dY[i])
+        return np.array(dZ)
+        
 
 class ArcTan(Activation):
     def __init__(self):
