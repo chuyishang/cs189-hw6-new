@@ -203,8 +203,9 @@ class FullyConnected(Layer):
 
         dLdZ = self.activation.backward(Z, dLdY)
         dX = dLdZ @ W.T
-        dW = dLdZ.T @ X
-        db = dLdY
+        # dW = dLdZ.T @ X
+        dW = X.T @ dLdZ
+        db = np.sum(dLdZ, axis=0, keepdims=True)
 
         #print("\n================================================")
         #print("dLdY", dLdY.shape, "W", W.shape, "b", b.shape, "X", X.shape, "Z", Z.shape, "dLdZ", dLdZ.shape, "dX", dX.shape, "dW", dW.shape, "db", db.shape)
