@@ -15,6 +15,9 @@ from collections import OrderedDict
 
 from typing import Callable, List, Literal, Tuple, Union
 
+# for testing only
+import scipy as sp
+
 
 class Layer(ABC):
     """Abstract class defining the `Layer` interface."""
@@ -290,6 +293,7 @@ class Conv2D(Layer):
         W = self.parameters["W"]
         b = self.parameters["b"]
 
+        # in_channels = self.n_in, out_channels = self.n_out
         kernel_height, kernel_width, in_channels, out_channels = W.shape
         n_examples, in_rows, in_cols, in_channels = X.shape
         kernel_shape = (kernel_height, kernel_width)
@@ -297,6 +301,54 @@ class Conv2D(Layer):
         ### BEGIN YOUR CODE ###
 
         # implement a convolutional forward pass
+
+
+        out_rows = int(((in_rows - kernel_height + 2 * self.pad[0]) / self.stride) + 1)
+        out_cols = int(((in_cols - kernel_width + 2 * self.pad[1]) / self.stride) + 1)
+
+        output = np.zeros([n_examples, out_rows, out_cols, out_channels])
+
+        padded_X = np.pad(X, [(0,0), (self.pad[0], self.pad[0]), (self.pad[1], self.pad[1]), (0,0)])
+
+        # for each example
+        for i in range(n_examples):
+            for row in range(out_rows):
+                for col in range(out_cols):
+                    # start and end col index
+                    start_col = col * self.stride
+                    end_col = start_col + kernel_width
+                    # start and end row index
+                    start_row = row * self.stride
+                    end_row = start_row + kernel_height
+                    # X window
+                    X_window = padded_X[i, start_col:end_col, start_row:end_row, :]
+                    #print("\n====================================")
+                    #print("WINDOW", X_window.shape, "STRIDE:", self.stride, "START/END", start_col, "/", end_col)
+                    #print(X_window)
+                    #print("====================================")
+                    for f in range(out_channels):
+                        #TODO: is W the right filter array?
+                        filter = W[:, :, :, f]
+                        #print("\n====================================")
+                        #try:
+                        #    print("WINDOW * FILTER:", (X_window * filter).shape, "NP.SUM", np.sum(X_window * filter).shape, "b", b.shape)
+                        #except:
+                        #    print(X_window.shape)
+                        #print("====================================")
+                        result = np.sum(X_window * filter) + b[:, f]
+                        output[i, row, col, f] = result
+        
+        self.cache["Z"] = output
+        self.cache["X"] = X
+
+        return self.activation(output)
+                        
+        
+        
+
+
+
+
 
         # cache any values required for backprop
 
