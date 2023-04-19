@@ -340,5 +340,7 @@ class NeuralNetwork(ABC):
         ### YOUR CODE HERE ###
         # Do a forward pass. Maybe use a function you already wrote?
         # Get the loss. Remember that the `backward` function returns the loss.
-        return ...
+        Z = self.forward(X)
+        loss = self.loss.forward(Y, Z)
+        return Z, loss
 
