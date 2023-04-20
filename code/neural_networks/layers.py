@@ -368,78 +368,91 @@ class Conv2D(Layer):
         W = self.parameters["W"]
         b = self.parameters["b"]
 
-
+        # Dimension Initialization
         n_examples, in_rows, in_cols, in_channels = X.shape
         kernel_height, kernel_width, in_channels, out_channels = W.shape
         kernel_shape = (kernel_height, kernel_width)
-        _, out_rows, out_cols, _ = Z.shape
+        n_examples, out_rows, out_cols, out_channels = Z.shape
 
-       
-        # dLdY ~ (16, 16, 16, 32)
-        # 16 - batch size, 16 - out_rows, 16 - out_cols, 32 - out_channels
-        # backwards activation
-        dZ = self.activation.backward(Z, dLdY)        
+        # Pad X 
+        # TODO? --> should self.pad be self.pad or kernel.shape?
+        X_pad, _ = conv.pad2d(X, self.pad, self.stride, kernel_shape)
 
-        dB = dZ.sum(axis=(0, 1, 2)).reshape(1, -1)
-        dW = np.zeros(W.shape)
-
-        print("\n===============================")
-        print("dLdY", dLdY.shape, "dZ", dZ.shape, "Z", Z.shape, "W", W.shape, "X", X.shape, "dB", dB.shape, "b", b.shape, "dW", dW.shape)
-        print("=================================")
-            
-
+        # Process dLdY
+        dLdZ = self.activation.backward(dLdY, Z)
+        # TODO? Pad or dilate first? Or doesn't matter?
+        # Pad dLdZ and dilate
+        # PAD
+        dLdZ_pad = np.pad(dLdZ, 
+                          [(0,0), (kernel_height-1, kernel_height-1), 
+                           (kernel_width-1, kernel_width-1),
+                           (0,0)], mode="constant")
+        
+        # DILATE
         # Dilate each dLdY by stride
+        # TODO? dLdZ_pad dilate or dLdZ dilate?
         if self.stride != 1:
             for i in range(1, self.stride):
-                dLdY = np.insert(dLdY, range(1, dLdY.shape[1], i), 0, axis=1)
-                dLdY = np.insert(dLdY, range(1, dLdY.shape[2], i), 0, axis=2)
+                dLdZ = np.insert(dLdZ_pad, range(1, dLdZ_pad.shape[1], i), 0, axis=1)
+                dLdZ = np.insert(dLdZ_pad, range(1, dLdZ_pad.shape[2], i), 0, axis=2)
         
-        # Pad dLdY
-        padded_dLdY = np.pad(X, [(0,0), (kernel_height - 1, kernel_height - 1), (kernel_width - 1, kernel_width - 1), (0,0)])
-
         # Flip W
         W_flip = np.flip(W, axis=0)
         W_flip = np.flip(W_flip, axis=1)
 
-        output = np.zeros([n_examples, in_rows, in_cols, out_channels])
+        # Define dLdX pad --> writing to this matrix
+        dLdX_pad = np.zeros(X_pad.shape)
 
-        dW = np.zeros(W.shape)
+        # dB
+        dB = dLdZ.sum(axis=(0, 1, 2)).reshape(1, -1)
 
-        # dLdX ~ (16, 3
-        for i in range(n_examples):
-            for row in range(in_rows):
-                for col in range(in_cols):
-                    # start and end col index
-                    start_col = col
-                    end_col = start_col + kernel_width
-                    # start and end row index
+        # Define dLdW
+        dLdW = np.zeros(W.shape)
+
+        print("\n====================================")
+        print("pad", self.pad, "stride", self.stride, "kernel shape", kernel_shape, "dLdZ", dLdZ.shape, "dLdZ_pad", dLdZ_pad.shape, "dLdX_pad", dLdX_pad.shape, "X", X.shape)
+        print("====================================")
+
+        
+        for row in range(in_rows):
+            for col in range(in_cols):
+                for filter in range(in_channels):
+                    # start row
                     start_row = row * self.stride
                     end_row = start_row + kernel_height
-                    # X window
-                    window = padded_dLdY[i, start_row:end_row, start_col:end_col, :]
+                    # start col
+                    start_col = col * self.stride
+                    end_col = start_col + kernel_width
+                    # Window
+                    window = dLdZ_pad[:, start_row:end_row, start_col:end_col, :]
                     
-                    for f in range(out_channels):
-                        #TODO: is W the right filter array?
-                        filter = W_flip[:, :, :, f]
-                        result = np.sum(window * filter)
-                        output[i, row, col, f] = result
+                    print("\n====================================")
+                    print("Window", window.shape, "W_flip_TOTAL", W_flip.shape, "W_flip_filter", W_flip[:, :, :, filter].shape)
+                    print("====================================")
+                    
+                    prod = window * W_flip[:, :, :, filter]
+        
+        
 
-   
-        
-        
-        
-        
-        self.gradients["W"] = output
+
+
+
+
+        # Save Gradients
         self.gradients["b"] = dB
+        self.gradients["W"] = dLdW
 
-        return output
-
-        #print("\n===============================")
-        #print("dLdY", dLdY.shape, "stride", self.stride, "padded_dLdY", padded_dLdY.shape, "padding", self.pad)
-        #print("=================================")
+        # return dLdX
+        return 0
 
 
-        return dX
+
+        
+
+
+
+       
+        
 
 class Pool2D(Layer):
     """Pooling layer, implements max and average pooling."""
