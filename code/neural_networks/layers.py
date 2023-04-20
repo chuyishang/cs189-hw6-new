@@ -362,9 +362,82 @@ class Conv2D(Layer):
         """
         ### BEGIN YOUR CODE ###
 
-        # perform a backward pass
+        # Load Cache
+        X = self.cache["X"]
+        Z = self.cache["Z"]
+        W = self.parameters["W"]
+        b = self.parameters["b"]
 
-        ### END YOUR CODE ###
+
+        n_examples, in_rows, in_cols, in_channels = X.shape
+        kernel_height, kernel_width, in_channels, out_channels = W.shape
+        kernel_shape = (kernel_height, kernel_width)
+        _, out_rows, out_cols, _ = Z.shape
+
+       
+        # dLdY ~ (16, 16, 16, 32)
+        # 16 - batch size, 16 - out_rows, 16 - out_cols, 32 - out_channels
+        # backwards activation
+        dZ = self.activation.backward(Z, dLdY)        
+
+        dB = dZ.sum(axis=(0, 1, 2)).reshape(1, -1)
+        dW = np.zeros(W.shape)
+
+        print("\n===============================")
+        print("dLdY", dLdY.shape, "dZ", dZ.shape, "Z", Z.shape, "W", W.shape, "X", X.shape, "dB", dB.shape, "b", b.shape, "dW", dW.shape)
+        print("=================================")
+            
+
+        # Dilate each dLdY by stride
+        if self.stride != 1:
+            for i in range(1, self.stride):
+                dLdY = np.insert(dLdY, range(1, dLdY.shape[1], i), 0, axis=1)
+                dLdY = np.insert(dLdY, range(1, dLdY.shape[2], i), 0, axis=2)
+        
+        # Pad dLdY
+        padded_dLdY = np.pad(X, [(0,0), (kernel_height - 1, kernel_height - 1), (kernel_width - 1, kernel_width - 1), (0,0)])
+
+        # Flip W
+        W_flip = np.flip(W, axis=0)
+        W_flip = np.flip(W_flip, axis=1)
+
+        output = np.zeros([n_examples, in_rows, in_cols, out_channels])
+
+        dW = np.zeros(W.shape)
+
+        # dLdX ~ (16, 3
+        for i in range(n_examples):
+            for row in range(in_rows):
+                for col in range(in_cols):
+                    # start and end col index
+                    start_col = col
+                    end_col = start_col + kernel_width
+                    # start and end row index
+                    start_row = row * self.stride
+                    end_row = start_row + kernel_height
+                    # X window
+                    window = padded_dLdY[i, start_row:end_row, start_col:end_col, :]
+                    
+                    for f in range(out_channels):
+                        #TODO: is W the right filter array?
+                        filter = W_flip[:, :, :, f]
+                        result = np.sum(window * filter)
+                        output[i, row, col, f] = result
+
+   
+        
+        
+        
+        
+        self.gradients["W"] = output
+        self.gradients["b"] = dB
+
+        return output
+
+        #print("\n===============================")
+        #print("dLdY", dLdY.shape, "stride", self.stride, "padded_dLdY", padded_dLdY.shape, "padding", self.pad)
+        #print("=================================")
+
 
         return dX
 
