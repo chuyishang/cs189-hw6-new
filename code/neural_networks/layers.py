@@ -298,58 +298,52 @@ class Conv2D(Layer):
         n_examples, in_rows, in_cols, in_channels = X.shape
         kernel_shape = (kernel_height, kernel_width)
 
-        # OUT DIMENSION INITIALIZATION
-        output_rows = int(((in_rows - kernel_height + 2 * self.pad[0]) / self.stride)) + 1
-        output_cols = int(((in_cols - kernel_width + 2 * self.pad[1]) / self.stride))+ 1
+        # implement a convolutional forward pass
 
-        # Getting X_col
-        X_col, conv_padding = conv.im2col(X, kernel_shape, self.stride, self.pad)
-        
+        out_rows = int(((in_rows - kernel_height + 2 * self.pad[0]) / self.stride)) + 1
+        out_cols = int(((in_cols - kernel_width + 2 * self.pad[1]) / self.stride)) + 1
 
-        # 
-        W_T = np.transpose(W, [3, 2, 0, 1])
+        output = np.zeros([n_examples, out_rows, out_cols, out_channels])
 
-        W_arr = []
-        for i in range(W_T.shape[0]):
-            W_arr.append(W_T[i].flatten())
-        W_col = np.array(W_arr)
+        padded_X, _ = conv.pad2d(X, self.pad, self.stride, kernel_shape)
 
-    
-
-        print("\n================================================")
-        print("W", W.shape, "W_col", W_col.shape, "b", b.shape, "X_col", X_col.shape)
-        print("================================================")
-
-        WX = W_col @ X_col + b.T
-
-        print("\n================================================")
-        print("W", W.shape, "b", b.shape, "X", X.shape, "X_col", X_col.shape, "WX", WX.shape, "b", b.shape, "WX", WX.shape)
-        print("================================================")
-
-        # WX ~ (32, 4096)
-        Z = WX.T.reshape((n_examples, output_rows, output_cols, out_channels), order='F')
-        # n_channels = 32, n_examples = 16, output_rows = 16, output_cols = 16
-
-
-
-
-
-    
-
-        
-
-
-        out = self.activation(Z)
-    
-        self.cache["Z"] = Z
-        self.cache["X"] = X
-
-        return out
-
+        # for each example
+        for i in range(n_examples):
+            for row in range(out_rows):
+                for col in range(out_cols):
+                    # start and end col index
+                    start_col = col * self.stride
+                    end_col = start_col + kernel_width
+                    # start and end row index
+                    start_row = row * self.stride
+                    end_row = start_row + kernel_height
+                    # X window
+                    X_window = padded_X[i, start_row:end_row, start_col:end_col, :]
+                    #print("\n====================================")
+                    #print("WINDOW", X_window.shape, "STRIDE:", self.stride, "START/END", start_col, "/", end_col)
+                    #print(X_window)
+                    #print("====================================")
+                    for f in range(out_channels):
+                        #TODO: is W the right filter array?
+                        filter = W[:, :, :, f]
+                        #print("\n====================================")
+                        #try:
+                        #    print("WINDOW * FILTER:", (X_window * filter).shape, "NP.SUM", np.sum(X_window * filter).shape, "b", b.shape)
+                        #except:
+                        #    print(X_window.shape)
+                        #print("====================================")
+                        result = np.sum(X_window * filter) + b[:, f]
+                        output[i, row, col, f] = result
 
         # cache any values required for backprop
+        
+        self.cache["Z"] = output
+        self.cache["X"] = X
 
-        ### END YOUR CODE ###
+         ### END YOUR CODE ###
+
+        return self.activation(output)
+
 
     def backward(self, dLdY: np.ndarray) -> np.ndarray:
         """Backward pass for conv layer. Computes the gradients of the output
