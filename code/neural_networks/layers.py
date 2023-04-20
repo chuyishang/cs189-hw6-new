@@ -292,56 +292,59 @@ class Conv2D(Layer):
         W = self.parameters["W"]
         b = self.parameters["b"]
 
+        # DIMENSION INITIALIZATION
         # in_channels = self.n_in, out_channels = self.n_out
         kernel_height, kernel_width, in_channels, out_channels = W.shape
         n_examples, in_rows, in_cols, in_channels = X.shape
         kernel_shape = (kernel_height, kernel_width)
 
-        # out: (n_examples, out_rows, out_cols, out_channels)
+        # OUT DIMENSION INITIALIZATION
+        output_rows = int(((in_rows - kernel_height + 2 * self.pad[0]) / self.stride)) + 1
+        output_cols = int(((in_cols - kernel_width + 2 * self.pad[1]) / self.stride))+ 1
 
-        ### BEGIN YOUR CODE ###
-
-        # implement a convolutional forward pass
-
-        output_rows = int(((in_rows - kernel_height + 2 * self.pad[0]) / self.stride) + 1)
-        output_cols = int(((in_cols - kernel_width + 2 * self.pad[1]) / self.stride) + 1)
-
-        X_pad, conv_padding = conv.im2col(X, kernel_shape, self.stride, self.pad)
-
-        # Current W dimensions: (kernel_height, kernel_width, in_channels, out_channels)
-
-        W_T = np.transpose(W, [3, 2, 0, 1])
-        W_T_flat = W_T.reshape((W_T.shape[0], -1))
-
-        WX = np.dot(W_T_flat, X_pad) + b.T
+        # Getting X_col
+        X_col, conv_padding = conv.im2col(X, kernel_shape, self.stride, self.pad)
         
-        output = WX.T.reshape((n_examples, output_rows, output_cols, out_channels))
 
+        # 
+        W_T = np.transpose(W, [3, 2, 0, 1])
 
+        W_arr = []
+        for i in range(W_T.shape[0]):
+            W_arr.append(W_T[i].flatten())
+        W_col = np.array(W_arr)
+
+    
 
         print("\n================================================")
-
-        print("X", X.shape, "W", W.shape, "W.T", W.T.shape, "W_T", W_T.shape, "b", b.shape, "WX", WX.shape, "OUTPUT", output.shape, "PAD", conv_padding)
-
+        print("W", W.shape, "W_col", W_col.shape, "b", b.shape, "X_col", X_col.shape)
         print("================================================")
 
+        WX = W_col @ X_col + b.T
+
+        print("\n================================================")
+        print("W", W.shape, "b", b.shape, "X", X.shape, "X_col", X_col.shape, "WX", WX.shape, "b", b.shape, "WX", WX.shape)
+        print("================================================")
+
+        # WX ~ (32, 4096)
+        Z = WX.T.reshape((n_examples, output_rows, output_cols, out_channels), order='F')
+        # n_channels = 32, n_examples = 16, output_rows = 16, output_cols = 16
+
+
+
+
+
+    
 
         
 
 
-
-
-
-
-
-
-
-        self.cache["Z"] = output
+        out = self.activation(Z)
+    
+        self.cache["Z"] = Z
         self.cache["X"] = X
 
-
-
-        return self.activation(output)
+        return out
 
 
         # cache any values required for backprop
