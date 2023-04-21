@@ -410,13 +410,12 @@ class Conv2D(Layer):
         dLdW = np.zeros(W.shape)
 
         print("\n====================================")
-        print("pad", self.pad, "stride", self.stride, "kernel shape", kernel_shape, "dLdZ", dLdZ.shape, "dLdZ_pad", dLdZ_pad.shape, "dLdX_pad", dLdX_pad.shape, "X", X.shape)
+        print("XPAD", X_pad.shape, "pad", self.pad, "stride", self.stride, "kernel shape", kernel_shape, "dLdZ", dLdZ.shape, "dLdZ_pad", dLdZ_pad.shape, "dLdX_pad", dLdX_pad.shape, "X", X.shape)
         print("====================================")
 
-        
-        for row in range(in_rows):
-            for col in range(in_cols):
-                for filter in range(in_channels):
+        for i in range(n_examples):
+            for row in range(in_rows):
+                for col in range(in_cols):
                     # start row
                     start_row = row * self.stride
                     end_row = start_row + kernel_height
@@ -424,15 +423,23 @@ class Conv2D(Layer):
                     start_col = col * self.stride
                     end_col = start_col + kernel_width
                     # Window
-                    window = dLdZ_pad[:, start_row:end_row, start_col:end_col, :]
+                    window = dLdZ_pad[i, start_row:end_row, start_col:end_col, :]
                     
-                    print("\n====================================")
-                    print("Window", window.shape, "W_flip_TOTAL", W_flip.shape, "W_flip_filter", W_flip[:, :, :, filter].shape)
-                    print("====================================")
+                    #print("\n====================================")
+                    #print("Window", window.shape, "W_flip_TOTAL", W_flip.shape)
+                    #print("====================================")
                     
-                    prod = window * W_flip[:, :, :, filter]
+                    for color in range(in_channels):
+                        dLdX_pad[i, row, col, color] += np.sum(window * W_flip[:, :, color, :])
+        
+                    #prod = window * W_flip[:, :, :, filter]
         
         
+        dLdX = dLdX_pad[:, 1:-1, 1:-1, :]
+        
+        print("\n====================================")
+
+        print("dLdX", dLdX.shape, "dLdX_pad", dLdX_pad.shape, "dLdW", dLdW.shape, "dB", dB.shape)
 
 
 
@@ -443,7 +450,7 @@ class Conv2D(Layer):
         self.gradients["W"] = dLdW
 
         # return dLdX
-        return 0
+        return dLdX
 
 
 
