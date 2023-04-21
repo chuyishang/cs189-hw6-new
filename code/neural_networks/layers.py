@@ -383,19 +383,20 @@ class Conv2D(Layer):
         # TODO? Pad or dilate first? Or doesn't matter?
         # Pad dLdZ and dilate
         # PAD
-        dLdZ_pad = np.pad(dLdZ, 
-                          [(0,0), (kernel_height-1, kernel_height-1), 
-                           (kernel_width-1, kernel_width-1),
-                           (0,0)], mode="constant")
+        
         
         # DILATE
         # Dilate each dLdY by stride
         # TODO? dLdZ_pad dilate or dLdZ dilate?
         if self.stride != 1:
             for i in range(1, self.stride):
-                dLdZ = np.insert(dLdZ_pad, range(1, dLdZ_pad.shape[1], i), 0, axis=1)
-                dLdZ = np.insert(dLdZ_pad, range(1, dLdZ_pad.shape[2], i), 0, axis=2)
+                dLdZ = np.insert(dLdZ_pad, range(1, dLdZ.shape[1], i), 0, axis=1)
+                dLdZ = np.insert(dLdZ_pad, range(1, dLdZ.shape[2], i), 0, axis=2)
         
+        #dLdZ_pad = np.pad(dLdZ, [(0,0), (kernel_height-1, kernel_height-1), (kernel_width-1, kernel_width-1), (0,0)], mode="constant")
+
+        dLdZ_pad = np.pad(dLdZ, [(0,0), (kernel_height-1, kernel_height-1), (kernel_width-1, kernel_width-1), (0,0)], mode="constant")
+  
         # Flip W
         W_flip = np.flip(W, axis=0)
         W_flip = np.flip(W_flip, axis=1)
@@ -437,7 +438,7 @@ class Conv2D(Layer):
         
         dLdX = dLdX_pad[:, self.pad[0]:-self.pad[0], self.pad[1]:-self.pad[1], :]
         print("\n====================================")
-        print("dLdX", dLdX.shape, "dLdX_pad", dLdX_pad.shape, "dLdW", dLdW.shape, "dB", dB.shape)
+        print("dLdX", dLdX.shape, "dLdX_pad", dLdX_pad.shape, "dLdW", dLdW.shape, "dB", dB.shape, "dLdX", dLdX.shape)
         print("====================================")
 
 
