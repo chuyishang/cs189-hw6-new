@@ -379,7 +379,7 @@ class Conv2D(Layer):
         X_pad, _ = conv.pad2d(X, self.pad, self.stride, kernel_shape)
 
         # Process dLdY
-        dLdZ = self.activation.backward(dLdY, Z)
+        dLdZ = self.activation.backward(Z, dLdY)
         # TODO? Pad or dilate first? Or doesn't matter?
         # Pad dLdZ and dilate
         # PAD
@@ -435,12 +435,10 @@ class Conv2D(Layer):
                     #prod = window * W_flip[:, :, :, filter]
         
         
-        dLdX = dLdX_pad[:, 1:-1, 1:-1, :]
-        
+        dLdX = dLdX_pad[:, self.pad[0]:-self.pad[0], self.pad[1]:-self.pad[1], :]
         print("\n====================================")
-
         print("dLdX", dLdX.shape, "dLdX_pad", dLdX_pad.shape, "dLdW", dLdW.shape, "dB", dB.shape)
-
+        print("====================================")
 
 
 
@@ -452,14 +450,9 @@ class Conv2D(Layer):
         # return dLdX
         return dLdX
 
-
-
         
 
-
-
-       
-        
+                    
 
 class Pool2D(Layer):
     """Pooling layer, implements max and average pooling."""
