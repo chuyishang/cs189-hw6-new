@@ -349,12 +349,10 @@ class Conv2D(Layer):
         """Backward pass for conv layer. Computes the gradients of the output
         with respect to the input feature maps as well as the filter weights and
         biases.
-
         Parameters
         ----------
         dLdY  derivative of loss with respect to output of this layer
               shape (batch_size, out_rows, out_cols, out_channels)
-
         Returns
         -------
         derivative of the loss with respect to the input of this layer
@@ -451,10 +449,6 @@ class Conv2D(Layer):
         # return dLdX
         return dLdX
 
-        
-
-                    
-
 class Pool2D(Layer):
     """Pooling layer, implements max and average pooling."""
 
@@ -516,8 +510,33 @@ class Pool2D(Layer):
         pooled array of shape (batch_size, out_rows, out_cols, channels)
         """
         ### BEGIN YOUR CODE ###
+        # implement the forward pass
+        # DIMENSION INITIALIZATION
+        batch_size, in_rows, in_cols, in_channels = X.shape
+        kernel_height, kernel_width = self.kernel_shape
+
+        out_rows = int(((in_rows - kernel_height + 2 * self.pad[0]) / self.stride)) + 1
+        out_cols = int(((in_cols - kernel_width + 2 * self.pad[1]) / self.stride)) + 1
 
         # implement the forward pass
+        X_pool = np.zeros((batch_size, out_rows, out_cols, in_channels))
+        
+        X_pad, _  = conv.pad2d(X, self.pad, self.stride, self.kernel_shape)
+
+        for row in range(out_rows):
+            for col in range(out_cols):
+                row_start = row * self.stride
+                col_start = col * self.stride
+                row_end =  row_start + kernel_height
+                col_end = col_start + kernel_width
+
+                X_window = X_pad[:, row_start:row_end, col_start:col_end, :]
+                result = self.pool_fn(X_window, axis=(1,2))
+
+                X_pool[:, row, col, :] = result
+
+        # cache any values required for backprop
+        self.cache["X"] = X
 
         # cache any values required for backprop
 
@@ -539,8 +558,53 @@ class Pool2D(Layer):
         shape (batch_size, in_rows, in_cols, channels)
         """
         ### BEGIN YOUR CODE ###
-
         # perform a backward pass
+        X = self.cache["X"]
+        
+        n_examples, in_rows, in_cols, in_channels = X.shape
+        kernel_height, kernel_width = self.kernel_shape
+        
+        out_rows = int(((in_rows - kernel_height + 2 * self.pad[0]) / self.stride)) + 1
+        out_cols = int(((in_cols - kernel_width + 2 * self.pad[1]) / self.stride)) + 1
+
+        X_pad, _ = conv.pad2d(X, self.pad, self.kernel_shape, self.stride)
+
+        dLdX = np.zeros(X_pad.shape)
+
+        for row in range(out_rows):
+            for col in range(out_cols):
+                row_start = row * self.stride
+                row_end = row_start + kernel_height
+                col_start = col * self.stride
+                col_end = col_start + kernel_width
+
+                if self.mode == "max":
+                    window = X_pad[:, row_start:row_end, col_start:col_end, :]
+                    mask = np.zeros(window.shape)
+                    maxes = np.max(window, axis=(1,2))
+
+                    #print("\n========================")
+                    #print("WINDOW", window.shape, "MAXES", maxes.shape, "MASK", mask.shape) 
+                    #print("========================")
+
+                    for i in range(window.shape[0]):
+                        for j in range(window.shape[3]):
+                            #print("\n========================")
+                            #print("WINDOW", window.shape, "MAXES", maxes.shape, "MASK", mask.shape, "MASK_ij", mask[i, :, :, j].shape, "X_ij", X[i, :, :, j].shape) 
+                            #print("========================")
+                            mask[i, :, :, j] = (window[i, :, :, j] == maxes[i,j])
+                    dLdX[:, row_start:row_end, col_start:col_end, :] += mask * dLdY[:, row:row+1, col:col+1, :]
+
+                if self.mode == "average":
+                    dLdX[:, row_start:row_end, col_start:col_end, :] += dLdY[:, row:row+1, col:col+1, :] / (kernel_height * kernel_width)
+
+
+        #print(dLdX.shape)
+        
+        return dLdX[:, self.pad[0]:in_rows+self.pad[0], self.pad[1]:in_cols+self.pad[1], :]
+
+        
+        
 
         ### END YOUR CODE ###
 
